@@ -1,0 +1,5 @@
+*.wav
+venv
+saved
+build
+_pycache_
