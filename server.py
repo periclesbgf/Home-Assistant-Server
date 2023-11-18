@@ -2,11 +2,12 @@ import socket
 import wave
 import time
 import numpy as np
-import tensorflow as tf
 from tensorflow.keras import models
-from recording_helper import record_audio_from_file, terminate
-from tf_helper import preprocess_audiobuffer
-import pathlib
+from recording_helper import *
+from tf_helper import *
+import random
+import string
+import os
 
 commands = ['_background_noise_', 'background', 'eden', 'marvin', 'off', 'on']
 
@@ -26,8 +27,11 @@ def receive_audio_data():
     print(f"Conexão estabelecida com {client_address}")
 
     while True:
+        string_aleatoria = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
+        wav_file = string_aleatoria + ".wav"
         received_data = bytearray()
         start_time = time.time()
+
         try:
             while time.time() - start_time < RECEIVE_DURATION_SECONDS:
                 data = client_socket.recv(1024)
@@ -37,11 +41,13 @@ def receive_audio_data():
         except Exception as e:
             print(f"Erro durante a recepção dos dados: {e}")
 
-        save_audio_data_to_wav(received_data, "test.wav")
-        predict_mic(received_data)
+        if received_data:
+            save_audio_data_to_wav(received_data, wav_file)
+            predict_mic(wav_file)
+            delete_file(wav_file)
 
-        client_socket.close()
-        server_socket.close()
+    client_socket.close()
+    server_socket.close()
 
     return received_data
 
@@ -52,7 +58,6 @@ def save_audio_data_to_wav(data, filename):
             audio_file.setsampwidth(2)   # 16 bits
             audio_file.setframerate(16000)  # Exemplo de taxa de amostragem
             audio_file.writeframes(data)
-        print(f"Dados de áudio recebidos e salvos como '{filename}'.")
     except Exception as e:
         print(f"Erro ao salvar os dados de áudio como WAV: {e}")
 
@@ -63,6 +68,7 @@ def print_received_data(data):
 
 def main():
     receive_audio_data()
+    #print_received_data(received_data)
 
 def predict_mic(file):
     audio = record_audio_from_file(file)
@@ -72,6 +78,11 @@ def predict_mic(file):
     command = commands[label_pred[0]]
     print("Predicted:", command)
 
+def delete_file(file):
+    try:
+        os.remove(file)
+    except OSError as e:
+        print(f"Erro ao excluir o arquivo {file}: {e}")
 
 if __name__ == "__main__":
     main()

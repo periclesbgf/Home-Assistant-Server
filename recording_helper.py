@@ -38,5 +38,4 @@ def terminate():
     p.terminate()
 
 received_data = bytearray()
-file = 'test.wav'
-audio_data = record_audio_from_file(file)
+
