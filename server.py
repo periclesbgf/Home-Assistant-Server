@@ -8,6 +8,8 @@ from tf_helper import *
 import random
 import string
 import os
+from threading import Thread
+from pydub import AudioSegment
 
 commands = ['_background_noise_', 'background', 'eden', 'marvin', 'off', 'on']
 
@@ -42,14 +44,24 @@ def receive_audio_data():
             print(f"Erro durante a recepção dos dados: {e}")
 
         if received_data:
-            save_audio_data_to_wav(received_data, wav_file)
-            predict_mic(wav_file)
-            delete_file(wav_file)
+            # Utilizando threads para realizar o salvamento, predição e exclusão
+            thread_save_predict_delete = Thread(
+                target=save_predict_delete,
+                args=(received_data, wav_file)
+            )
+            thread_save_predict_delete.start()
 
     client_socket.close()
     server_socket.close()
 
     return received_data
+
+def save_predict_delete(data, filename):
+    save_audio_data_to_wav(data, filename)
+    #aumento_em_db = 10  # Ajuste o valor conforme necessário
+    #aumentar_volume(filename, filename, aumento_em_db)
+    predict_mic(filename)
+    delete_file(filename)
 
 def save_audio_data_to_wav(data, filename):
     try:
@@ -83,6 +95,17 @@ def delete_file(file):
         os.remove(file)
     except OSError as e:
         print(f"Erro ao excluir o arquivo {file}: {e}")
+
+def aumentar_volume(input_file, output_file, aumento_em_db):
+    # Carregar o arquivo de áudio
+    audio = AudioSegment.from_wav(input_file)
+
+    # Aumentar o volume em dB
+    audio = audio + aumento_em_db
+
+    # Salvar o novo arquivo de áudio
+    audio.export(output_file, format="wav")
+
 
 if __name__ == "__main__":
     main()
