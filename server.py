@@ -12,7 +12,7 @@ from threading import Thread
 from concurrent.futures import ThreadPoolExecutor
 from pydub import AudioSegment
 
-commands = ['_background_noise_', 'background', 'eden', 'marvin', 'off', 'on']
+commands = ['background', 'eden']
 
 loaded_model = models.load_model("./saved")
 
