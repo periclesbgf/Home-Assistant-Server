@@ -10,7 +10,8 @@ import string
 import os
 from threading import Thread
 from concurrent.futures import ThreadPoolExecutor
-from pydub import AudioSegment
+import speech_recognition as sr
+import threading
 
 commands = ['background', 'eden']
 
@@ -21,6 +22,7 @@ SERVER_PORT = 12445
 ESP32_TCP_SERVER_IP = "192.168.1.6"  # Substitua pelo IP do servidor TCP da ESP32
 ESP32_TCP_SERVER_PORT = 12345  # Substitua pela porta do servidor TCP da ESP32
 RECEIVE_DURATION_SECONDS = 1
+RECEIVE_DURATION_SECONDS_R = 3
 RECEIVE_BUFFER_SIZE = 1024
 
 def receive_audio_data():
@@ -89,5 +91,62 @@ def connect_to_esp32_tcp_server():
     except Exception as e:
         print(f"Erro ao conectar e enviar dados para o servidor TCP da ESP32: {e}")
 
+def save_predict_delete1(data, filename):
+    save_audio_data_to_wav(data, filename)
+    transcricao = transcrever_audio(filename)
+    print(transcricao)
+    delete_file(filename)
+
+def transcrever_audio(arquivo_wav):
+    recognizer = sr.Recognizer()
+
+    with sr.AudioFile(arquivo_wav) as source:
+        audio = recognizer.record(source)
+
+    try:
+        texto_transcrito = recognizer.recognize_google(audio)
+        return texto_transcrito
+    except sr.UnknownValueError:
+        return "Não foi possível transcrever o áudio"
+    except sr.RequestError as e:
+        return f"Erro na requisição para a API do Google: {e}"
+
+def receive_audio_data_tcp():
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.bind((SERVER_IP, SERVER_PORT + 1))
+    server_socket.listen(5)
+
+    print(f"Aguardando conexões em {SERVER_IP}:{SERVER_PORT + 1}...")
+
+    while True:
+        client_socket, addr = server_socket.accept()
+        print(f"Conexão recebida de {addr}")
+
+        string_aleatoria = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
+        wav_file = string_aleatoria + ".wav"
+        received_data = bytearray()
+        start_time = time.time()
+
+        try:
+            while time.time() - start_time < RECEIVE_DURATION_SECONDS_R:
+                data = client_socket.recv(RECEIVE_BUFFER_SIZE)
+                if not data:
+                    break
+                received_data.extend(data)
+        except Exception as e:
+            print(f"Erro durante a recepção dos dados: {e}")
+
+        if received_data:
+            save_predict_delete1(received_data, wav_file)
+
+        client_socket.close()
+
+    server_socket.close()
 if __name__ == "__main__":
+
+    tcp_thread = threading.Thread(target=receive_audio_data_tcp)
+    tcp_thread.start()
+
     receive_audio_data()
+
+    tcp_thread.join()
