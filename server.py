@@ -104,7 +104,7 @@ def transcrever_audio(arquivo_wav):
         audio = recognizer.record(source)
 
     try:
-        texto_transcrito = recognizer.recognize_google(audio)
+        texto_transcrito = recognizer.recognize_google(audio, language='pt-br')
         return texto_transcrito
     except sr.UnknownValueError:
         return "Não foi possível transcrever o áudio"
