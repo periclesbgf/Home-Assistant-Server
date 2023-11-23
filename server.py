@@ -72,7 +72,7 @@ def predict_mic(file):
     prediction = loaded_model(spec)
     label_pred = np.argmax(prediction, axis=1)
     command = commands[label_pred[0]]
-    if command == 'eden':  # Adicione esta função para verificar se o comando predito é "eden"
+    if command == 'eden':
         activation_word = b'eden'
         connect_to_esp32_tcp_server(activation_word)
     print("Predicted:", command)
