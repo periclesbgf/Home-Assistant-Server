@@ -17,8 +17,8 @@ commands = ['background', 'eden']
 
 loaded_model = models.load_model("./saved")
 
-SERVER_IP = "192.168.1.3"
-SERVER_PORT = 12445
+SERVER_IP = "192.168.1.3" # Your id: if windows ipconfig, linux: ifconfig
+SERVER_PORT = 12445 # Server port
 ESP32_TCP_SERVER_IP = "192.168.1.6"  # Substitua pelo IP do servidor TCP da ESP32
 ESP32_TCP_SERVER_PORT = 12345  # Substitua pela porta do servidor TCP da ESP32
 RECEIVE_DURATION_SECONDS = 1
