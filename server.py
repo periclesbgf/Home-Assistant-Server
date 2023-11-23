@@ -73,7 +73,8 @@ def predict_mic(file):
     label_pred = np.argmax(prediction, axis=1)
     command = commands[label_pred[0]]
     if command == 'eden':  # Adicione esta função para verificar se o comando predito é "eden"
-        connect_to_esp32_tcp_server()
+        activation_word = b'eden'
+        connect_to_esp32_tcp_server(activation_word)
     print("Predicted:", command)
 
 def delete_file(file):
@@ -82,11 +83,12 @@ def delete_file(file):
     except OSError as e:
         print(f"Erro ao excluir o arquivo {file}: {e}")
 
-def connect_to_esp32_tcp_server():
+def connect_to_esp32_tcp_server(activation_word):
     esp32_tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
         esp32_tcp_socket.connect((ESP32_TCP_SERVER_IP, ESP32_TCP_SERVER_PORT))
-        esp32_tcp_socket.send(b'eden')  # Enviar um byte representando "eden"
+        print('Enviando: ', activation_word)
+        esp32_tcp_socket.send(activation_word)  # Enviar um byte representando "eden"
         esp32_tcp_socket.close()
     except Exception as e:
         print(f"Erro ao conectar e enviar dados para o servidor TCP da ESP32: {e}")
@@ -105,11 +107,27 @@ def transcrever_audio(arquivo_wav):
 
     try:
         texto_transcrito = recognizer.recognize_google(audio, language='pt-br')
+        response_handler(texto_transcrito)
         return texto_transcrito
     except sr.UnknownValueError:
         return "Não foi possível transcrever o áudio"
     except sr.RequestError as e:
         return f"Erro na requisição para a API do Google: {e}"
+
+def response_handler(text):
+    text_lower = text.lower()
+    if text_lower in ['ligar luz 1', 'ligar primeira luz', 'acender primeira luz', 'acender luz 1', 'acender primeira luiz', 'acender luiz 1', 'ligar luiz 1', 'ligar primeira luiz', 'ligar luz vermelha', 'acender luz vermelha']:
+        comand = b'll1'
+        connect_to_esp32_tcp_server(comand)
+    elif text_lower in ['apagar luz 1', 'apagar primeira luz', 'desligar primeira luz', 'desligar luz 1', 'desligar primeira luiz', 'desligar luiz 1', 'apagar luiz 1', 'apagar primeira luiz', 'apagar luz vermelha', 'desligar luz vermelha']:
+        comand = b'dl1'
+        connect_to_esp32_tcp_server(comand)
+    elif text_lower in ['ligar luz 2', 'ligar segunda luz', 'acender segunda luz', 'acender luz 2', 'acender segunda luiz', 'acender luiz 2', 'ligar luiz 2', 'ligar segunda luiz', 'ligar luz azul', 'acender luz azul']:
+        comand = b'll2'
+        connect_to_esp32_tcp_server(comand)
+    elif text_lower in ['apagar luz 2', 'apagar segunda luz', 'desligar segunda luz', 'desligar luz 2', 'desligar segunda luiz', 'desligar luiz 2', 'apagar luiz 2', 'apagar segunda luiz', 'desligar luz azul', 'apagar luz azul']:
+        comand = b'dl2'
+        connect_to_esp32_tcp_server(comand)
 
 def receive_audio_data_tcp():
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
