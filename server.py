@@ -116,16 +116,10 @@ def transcrever_audio(arquivo_wav):
 
 def response_handler(text):
     text_lower = text.lower()
-    if text_lower in ['ligar luz 1', 'ligar primeira luz', 'acender primeira luz', 'acender luz 1', 'acender primeira luiz', 'acender luiz 1', 'ligar luiz 1', 'ligar primeira luiz', 'ligar luz vermelha', 'acender luz vermelha']:
-        comand = b'll1'
-        connect_to_esp32_tcp_server(comand)
-    elif text_lower in ['apagar luz 1', 'apagar primeira luz', 'desligar primeira luz', 'desligar luz 1', 'desligar primeira luiz', 'desligar luiz 1', 'apagar luiz 1', 'apagar primeira luiz', 'apagar luz vermelha', 'desligar luz vermelha']:
-        comand = b'dl1'
-        connect_to_esp32_tcp_server(comand)
-    elif text_lower in ['ligar luz 2', 'ligar segunda luz', 'acender segunda luz', 'acender luz 2', 'acender segunda luiz', 'acender luiz 2', 'ligar luiz 2', 'ligar segunda luiz', 'ligar luz azul', 'acender luz azul']:
+    if text_lower in ['ligar a luminária', 'ligar luminária','ligue a luminária','ligue luminária', 'acender luminária', 'acender luz', 'acender a luiz', 'acender luiz', 'ligar luz', 'acender luz']:
         comand = b'll2'
         connect_to_esp32_tcp_server(comand)
-    elif text_lower in ['apagar luz 2', 'apagar segunda luz', 'desligar segunda luz', 'desligar luz 2', 'desligar segunda luiz', 'desligar luiz 2', 'apagar luiz 2', 'apagar segunda luiz', 'desligar luz azul', 'apagar luz azul']:
+    elif text_lower in ['desligar a luminária', 'desligar luminária','apagar luminária', 'apagar a luminária', 'desligue a luminária', 'desligue luminária', 'desligar luiz', 'desligar luiz']:
         comand = b'dl2'
         connect_to_esp32_tcp_server(comand)
 
