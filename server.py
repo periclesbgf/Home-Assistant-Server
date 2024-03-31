@@ -17,13 +17,16 @@ commands = ['background', 'eden']
 
 loaded_model = models.load_model("./saved")
 
-SERVER_IP = "192.168.1.3" # Your id: if windows ipconfig, linux: ifconfig
+SERVER_IP = "192.168.1.4" # Your id: if windows ipconfig, linux: ifconfig
 SERVER_PORT = 12445 # Server port
-ESP32_TCP_SERVER_IP = "192.168.1.6"  # Substitua pelo IP do servidor TCP da ESP32
+ESP32_TCP_SERVER_IP = "192.168.1.15"  # Substitua pelo IP do servidor TCP da ESP32
 ESP32_TCP_SERVER_PORT = 12345  # Substitua pela porta do servidor TCP da ESP32
 RECEIVE_DURATION_SECONDS = 1
 RECEIVE_DURATION_SECONDS_R = 3
 RECEIVE_BUFFER_SIZE = 1024
+SEND_BUFFER_SIZE = 2048
+
+wav_file_path = "/Users/peric/projects/Home-Assistant-Server/musica.wav"
 
 def receive_audio_data():
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -122,6 +125,8 @@ def response_handler(text):
     elif text_lower in ['desligar a luminária', 'desligar luminária','apagar luminária', 'apagar a luminária', 'desligue a luminária', 'desligue luminária', 'desligar luiz', 'desligar luiz']:
         comand = b'dl2'
         connect_to_esp32_tcp_server(comand)
+    elif text_lower in ["tocar musica", "tocar música", "tocar um som", "tocar som"]:
+        send_wav_file_over_tcp(wav_file_path, ESP32_TCP_SERVER_IP, ESP32_TCP_SERVER_PORT)
 
 def receive_audio_data_tcp():
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -153,7 +158,38 @@ def receive_audio_data_tcp():
 
         client_socket.close()
 
-    server_socket.close()
+
+def send_wav_file_over_tcp(wav_file_path, server_ip, server_port):
+    """
+    Envia um arquivo WAV para o servidor especificado através de TCP.
+
+    :param wav_file_path: O caminho para o arquivo WAV a ser enviado.
+    :param server_ip: O endereço IP do servidor TCP (ESP32).
+    :param server_port: A porta TCP no servidor para a qual nos conectaremos.
+    """
+    # Criar um socket TCP
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    try:
+        # Conectar ao servidor
+        sock.connect((server_ip, server_port))
+        print(f"Conectado a {server_ip}:{server_port}")
+
+        # Abrir o arquivo WAV e enviar seus bytes
+        with open(wav_file_path, 'rb') as wav_file:
+            data = wav_file.read(SEND_BUFFER_SIZE)  # Ler 1024 bytes por vez
+            while data:
+                sock.send(data)
+                data = wav_file.read(SEND_BUFFER_SIZE)
+        print("Arquivo WAV enviado com sucesso.")
+    except Exception as e:
+        print(f"Erro ao enviar arquivo WAV: {e}")
+    finally:
+        # Fechar o socket
+        sock.close()
+
+
+
 if __name__ == "__main__":
 
     tcp_thread = threading.Thread(target=receive_audio_data_tcp)
