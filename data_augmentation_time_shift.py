@@ -36,10 +36,10 @@ def apply_time_shift_to_directory(input_folder, output_folder, shift_amount=2):
 
 if __name__ == "__main__":
     # Substitua 'G:/server/Home-Assistant-Server/test' pelo caminho do seu diretório de entrada
-    input_folder_path = 'G:/server/Home-Assistant-Server/eden'
+    input_folder_path = 'G:/server/Home-Assistant-Server/background'
 
     # Substitua 'caminho/para/seu/diretorio_de_saida' pelo caminho do diretório de saída
-    output_folder_path = 'G:/server/Home-Assistant-Server/data_augmentation'
+    output_folder_path = 'G:/server/Home-Assistant-Server/data_augmentation_time_s_background'
 
     # Quantidade de deslocamento no tempo em segundos
     shift_amount_seconds = 2

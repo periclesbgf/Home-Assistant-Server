@@ -12,18 +12,68 @@ from threading import Thread
 from concurrent.futures import ThreadPoolExecutor
 import speech_recognition as sr
 import threading
+from gtts import gTTS
+from pydub import AudioSegment
+
+
 
 commands = ['background', 'eden']
 
 loaded_model = models.load_model("./saved")
 
-SERVER_IP = "192.168.1.3" # Your id: if windows ipconfig, linux: ifconfig
+#SERVER_IP = "192.168.1.12" # Your id: if windows ipconfig, linux: ifconfig
 SERVER_PORT = 12445 # Server port
-ESP32_TCP_SERVER_IP = "192.168.1.6"  # Substitua pelo IP do servidor TCP da ESP32
-ESP32_TCP_SERVER_PORT = 12345  # Substitua pela porta do servidor TCP da ESP32
+#ESP32_TCP_SERVER_IP = "192.168.1.15"  # Substitua pelo IP do servidor TCP da ESP32
+ESP32_TCP_SERVER_PORT_FOR = 12345  # Substitua pela porta do servidor TCP da ESP32
 RECEIVE_DURATION_SECONDS = 1
 RECEIVE_DURATION_SECONDS_R = 3
 RECEIVE_BUFFER_SIZE = 1024
+SEND_BUFFER_SIZE = 2048
+
+wav_file_path = "G:/server/Home-Assistant-Server/reformated2.wav"
+
+
+class DiscoverESP32:
+    def __init__(self):
+        self.esp32_address = None
+        self.esp32_port = None  # A porta que a ESP32 usará para se conectar
+
+    def listen_for_esp32(self, listen_port=12340):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
+            server_socket.bind(('', listen_port))
+            server_socket.listen()
+            print(f"Listening for ESP32 connection on port {listen_port}...")
+            
+            client_socket, client_address = server_socket.accept()
+            with client_socket:
+                print(f"ESP32 connected from {client_address}")
+                data = client_socket.recv(1024).decode('utf-8')
+                if data == "Hello from ESP32!":
+                    self.esp32_address = client_address[0]
+                    self.esp32_port = client_address[1]  # Opcional, depende de como você quer usar
+                    print(f"ESP32 IP Address: {self.esp32_address}")
+                    response_message = "Address get successfully"
+                    client_socket.sendall(response_message.encode('utf-8'))
+                else:
+                    print("Unknown device connected")
+
+
+def get_local_ip():
+    try:
+        # Cria um socket DGRAM
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        # Não é necessário enviar dados, então apenas conecte ao endereço externo
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+    except Exception as e:
+        print(f"Erro ao obter o endereço IP local: {e}")
+        ip = "127.0.0.1"  # Fallback para localhost
+    return ip
+
+# Use a função para definir SERVER_IP
+SERVER_IP = get_local_ip()
+print(f"O IP do servidor foi definido para {SERVER_IP}")
 
 def receive_audio_data():
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -86,7 +136,7 @@ def delete_file(file):
 def connect_to_esp32_tcp_server(activation_word):
     esp32_tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
-        esp32_tcp_socket.connect((ESP32_TCP_SERVER_IP, ESP32_TCP_SERVER_PORT))
+        esp32_tcp_socket.connect((ESP32_TCP_SERVER_IP, ESP32_TCP_SERVER_PORT_FOR))
         print('Enviando: ', activation_word)
         esp32_tcp_socket.send(activation_word)  # Enviar um byte representando "eden"
         esp32_tcp_socket.close()
@@ -122,6 +172,36 @@ def response_handler(text):
     elif text_lower in ['desligar a luminária', 'desligar luminária','apagar luminária', 'apagar a luminária', 'desligue a luminária', 'desligue luminária', 'desligar luiz', 'desligar luiz']:
         comand = b'dl2'
         connect_to_esp32_tcp_server(comand)
+    elif text_lower in ["tocar musica", "tocar música", "tocar um som", "tocar som"]:
+        send_wav_file_over_tcp(wav_file_path, ESP32_TCP_SERVER_IP, ESP32_TCP_SERVER_PORT_FOR)
+    elif text_lower in ["parar música", "parar som"]:
+        comand = b'sm'
+        connect_to_esp32_tcp_server(comand)
+    elif text_lower in ["quem é você", "qual é o seu nome", "como você se chama"]:
+        text_to_speech_wav("Meu nome é Éden, seu assistente virtual. Como posso ajudar você hoje?", 'pt-br')
+        send_wav_file_over_tcp("speech.wav", ESP32_TCP_SERVER_IP, ESP32_TCP_SERVER_PORT_FOR)
+
+def text_to_speech_wav(text, lang='pt-br'):
+    # Cria um objeto gTTS
+    tts = gTTS(text=text, lang=lang, slow=False)
+    
+    # Gera um arquivo temporário mp3
+    temp_mp3 = "temp.mp3"
+    tts.save(temp_mp3)
+    
+    # Converte o arquivo mp3 para wav
+    audio = AudioSegment.from_mp3(temp_mp3)
+    audio_file_wav = "speech.wav"
+    audio.export(audio_file_wav, format="wav")
+    
+    # Remove o arquivo temporário mp3
+    os.remove(temp_mp3)
+    
+    print(f"Arquivo '{audio_file_wav}' salvo com sucesso.")
+
+# Exemplo de uso
+
+
 
 def receive_audio_data_tcp():
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -153,8 +233,49 @@ def receive_audio_data_tcp():
 
         client_socket.close()
 
-    server_socket.close()
+
+
+def send_wav_file_over_tcp(wav_file_path, server_ip, server_port):
+    """
+    Envia um arquivo WAV para o servidor especificado através de TCP.
+
+    :param wav_file_path: O caminho para o arquivo WAV a ser enviado.
+    :param server_ip: O endereço IP do servidor TCP (ESP32).
+    :param server_port: A porta TCP no servidor para a qual nos conectaremos.
+    """
+    # Criar um socket TCP
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    try:
+        # Conectar ao servidor
+        sock.connect((server_ip, server_port))
+        print(f"Conectado a {server_ip}:{server_port}")
+
+        # Abrir o arquivo WAV e enviar seus bytes
+        with open(wav_file_path, 'rb') as wav_file:
+            data = wav_file.read(SEND_BUFFER_SIZE)  # Ler 1024 bytes por vez
+            while data:
+                sock.send(data)
+                data = wav_file.read(SEND_BUFFER_SIZE)
+        print("Arquivo WAV enviado com sucesso.")
+    except Exception as e:
+        print(f"Erro ao enviar arquivo WAV: {e}")
+    finally:
+        # Fechar o socket
+        sock.close()
+
 if __name__ == "__main__":
+    SERVER_IP = get_local_ip()
+    print(f"O IP do servidor foi definido para {SERVER_IP}")
+
+    # Inicializa o descobridor da ESP32 e começa a ouvir a tentativa de conexão
+    esp32_discoverer = DiscoverESP32()
+    esp32_discoverer.listen_for_esp32()
+
+    # Agora você tem o IP da ESP32 disponível como esp32_discoverer.esp32_address
+    global ESP32_TCP_SERVER_IP, ESP32_TCP_SERVER_PORT
+    ESP32_TCP_SERVER_IP = esp32_discoverer.esp32_address
+    ESP32_TCP_SERVER_PORT = esp32_discoverer.esp32_port
 
     tcp_thread = threading.Thread(target=receive_audio_data_tcp)
     tcp_thread.start()

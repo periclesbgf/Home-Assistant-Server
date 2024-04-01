@@ -21,13 +21,13 @@ def augment_data_with_noise(input_folder, noise_level=0.005):
 
             # Construa o caminho de saída com um sufixo para o nome do arquivo aumentado
             output_filename = f"augmented_{filename}"
-            output_path = os.path.join("G:/server/Home-Assistant-Server/data_augmentation", output_filename)
+            output_path = os.path.join("G:/server/Home-Assistant-Server/data_augmentation_background", output_filename)
 
             # Salve o áudio aumentado no mesmo diretório que o original
             sf.write(output_path, augmented_audio, sr)
 
 if __name__ == "__main__":
-    input_folder = "G:/server/Home-Assistant-Server/eden"
+    input_folder = "G:/server/Home-Assistant-Server/background"
 
     # Ajuste o nível de ruído conforme necessário
     noise_level = 0.005
