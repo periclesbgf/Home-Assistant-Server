@@ -13,6 +13,8 @@ from concurrent.futures import ThreadPoolExecutor
 import speech_recognition as sr
 import threading
 from gtts import gTTS
+import ssl
+import paho.mqtt.client as mqtt
 from pydub import AudioSegment
 
 
@@ -30,8 +32,55 @@ RECEIVE_DURATION_SECONDS_R = 3
 RECEIVE_BUFFER_SIZE = 1024
 SEND_BUFFER_SIZE = 2048
 
-wav_file_path = "G:/server/Home-Assistant-Server/reformated2.wav"
+wav_file_path = "./reformated2.wav"
 
+MQTT_BROKER = "mqtts://a34ypir054ngjb-ats.iot.us-east-2.amazonaws.com:8883"  # Substitua com o seu endpoint da AWS IoT Core
+MQTT_PORT = 8883
+MQTT_TOPIC = "topic/esp32/pub"
+
+# Caminhos para os certificados e chaves
+CA_CERTIFICATE = "certs/AmazonRootCA1.pem"
+CLIENT_CERTIFICATE = "certs/clientcrt"
+CLIENT_PRIVATE_KEY = "certs/clientkey"
+
+def on_connect(client, userdata, flags, rc):
+    if rc == 0:
+        print("Conectado ao broker MQTT")
+    else:
+        print(f"Falha na conexão com o broker MQTT, código de retorno {rc}")
+
+def mqtt_publish(message):
+    """
+    Publica uma mensagem em um tópico MQTT para controlar a ESP32,
+    utilizando uma conexão segura com o MQTT hospedado na AWS.
+    
+    :param message: Mensagem a ser enviada ('on' para ligar, 'off' para desligar).
+    """
+    client = mqtt.Client()
+
+    # Define a função de callback para a conexão
+    client.on_connect = on_connect
+
+    # Configura a autenticação e criptografia
+    client.tls_set(CA_CERTIFICATE, 
+                   certfile=CLIENT_CERTIFICATE, 
+                   keyfile=CLIENT_PRIVATE_KEY, 
+                   cert_reqs=ssl.CERT_REQUIRED, 
+                   tls_version=ssl.PROTOCOL_TLSv1_2, 
+                   ciphers=None)
+
+    # Conectar ao broker MQTT na AWS
+    client.connect(MQTT_BROKER, MQTT_PORT, 60)
+    
+    # Inicia um loop em background para gerenciar a conexão
+    client.loop_start()
+
+    # Publicar a mensagem
+    client.publish(MQTT_TOPIC, message)
+    
+    # Aguarda a conclusão do envio
+    client.loop_stop()
+    client.disconnect()
 
 class DiscoverESP32:
     def __init__(self):
@@ -167,16 +216,13 @@ def transcrever_audio(arquivo_wav):
 def response_handler(text):
     text_lower = text.lower()
     if text_lower in ['ligar a luminária', 'ligar luminária','ligue a luminária','ligue luminária', 'acender luminária', 'acender luz', 'acender a luiz', 'acender luiz', 'ligar luz', 'acender luz']:
-        comand = b'll2'
-        connect_to_esp32_tcp_server(comand)
+        command = 'on'
+        mqtt_publish(command)
     elif text_lower in ['desligar a luminária', 'desligar luminária','apagar luminária', 'apagar a luminária', 'desligue a luminária', 'desligue luminária', 'desligar luiz', 'desligar luiz']:
-        comand = b'dl2'
-        connect_to_esp32_tcp_server(comand)
+        command = 'off'
+        mqtt_publish(command)
     elif text_lower in ["tocar musica", "tocar música", "tocar um som", "tocar som"]:
         send_wav_file_over_tcp(wav_file_path, ESP32_TCP_SERVER_IP, ESP32_TCP_SERVER_PORT_FOR)
-    elif text_lower in ["parar música", "parar som"]:
-        comand = b'sm'
-        connect_to_esp32_tcp_server(comand)
     elif text_lower in ["quem é você", "qual é o seu nome", "como você se chama"]:
         text_to_speech_wav("Meu nome é Éden, seu assistente virtual. Como posso ajudar você hoje?", 'pt-br')
         send_wav_file_over_tcp("speech.wav", ESP32_TCP_SERVER_IP, ESP32_TCP_SERVER_PORT_FOR)
