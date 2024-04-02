@@ -16,6 +16,8 @@ from gtts import gTTS
 import ssl
 import paho.mqtt.client as mqtt
 from pydub import AudioSegment
+from paho.mqtt.client import CallbackAPIVersion
+from paho.mqtt.client import MQTTv311  # Asume-se MQTT versão 3.1.1
 
 
 
@@ -34,53 +36,76 @@ SEND_BUFFER_SIZE = 2048
 
 wav_file_path = "./reformated2.wav"
 
-MQTT_BROKER = "mqtts://a34ypir054ngjb-ats.iot.us-east-2.amazonaws.com:8883"  # Substitua com o seu endpoint da AWS IoT Core
+MQTT_BROKER = "a34ypir054ngjb-ats.iot.us-east-2.amazonaws.com"
 MQTT_PORT = 8883
 MQTT_TOPIC = "topic/esp32/pub"
-
-# Caminhos para os certificados e chaves
 CA_CERTIFICATE = "certs/AmazonRootCA1.pem"
-CLIENT_CERTIFICATE = "certs/clientcrt"
-CLIENT_PRIVATE_KEY = "certs/clientkey"
+CLIENT_CERTIFICATE = "certs/client.crt"
+CLIENT_PRIVATE_KEY = "certs/client.key"
 
-def on_connect(client, userdata, flags, rc):
+def on_message(client, userdata, msg):
+    print(f"Received message: {msg.topic} {str(msg.payload)}")
+
+def on_connect(client, userdata, flags, rc, properties=None):
+    print(f"Connected with result code {rc}")
     if rc == 0:
-        print("Conectado ao broker MQTT")
+        client.subscribe(MQTT_TOPIC)
     else:
-        print(f"Falha na conexão com o broker MQTT, código de retorno {rc}")
+        print(f"Failed to connect, return code {rc}\n")
 
 def mqtt_publish(message):
-    """
-    Publica uma mensagem em um tópico MQTT para controlar a ESP32,
-    utilizando uma conexão segura com o MQTT hospedado na AWS.
-    
-    :param message: Mensagem a ser enviada ('on' para ligar, 'off' para desligar).
-    """
-    client = mqtt.Client()
+    client = mqtt.Client(callback_api_version=CallbackAPIVersion.VERSION2)  # Assumindo a utilização do protocolo MQTT v3.1.1
 
-    # Define a função de callback para a conexão
+    # Defina sua função on_connect aqui
     client.on_connect = on_connect
 
-    # Configura a autenticação e criptografia
-    client.tls_set(CA_CERTIFICATE, 
-                   certfile=CLIENT_CERTIFICATE, 
-                   keyfile=CLIENT_PRIVATE_KEY, 
-                   cert_reqs=ssl.CERT_REQUIRED, 
-                   tls_version=ssl.PROTOCOL_TLSv1_2, 
-                   ciphers=None)
+    # Configura a conexão TLS
+    client.tls_set(ca_certs=CA_CERTIFICATE,
+                   certfile=CLIENT_CERTIFICATE,
+                   keyfile=CLIENT_PRIVATE_KEY,
+                   tls_version=ssl.PROTOCOL_TLSv1_2)
 
-    # Conectar ao broker MQTT na AWS
+    # Conecta ao broker MQTT
     client.connect(MQTT_BROKER, MQTT_PORT, 60)
-    
+
     # Inicia um loop em background para gerenciar a conexão
     client.loop_start()
 
-    # Publicar a mensagem
-    client.publish(MQTT_TOPIC, message)
-    
-    # Aguarda a conclusão do envio
+    # Publica a mensagem e captura o resultado em info
+    info = client.publish(MQTT_TOPIC, message)
+
+    # Aguarda a conclusão do envio da mensagem
+    info.wait_for_publish()
+
+    # Log do resultado da publicação
+    print(f"Message published: MID={info.mid}, Granted QoS={info.rc}")
+
+    # Para a execução do loop e desconecta do broker
     client.loop_stop()
     client.disconnect()
+
+
+def initialize_mqtt_client():
+    client = mqtt.Client(callback_api_version=CallbackAPIVersion.VERSION2)
+
+    # Configure TLS connection
+    client.tls_set(ca_certs=CA_CERTIFICATE,
+                   certfile=CLIENT_CERTIFICATE,
+                   keyfile=CLIENT_PRIVATE_KEY,
+                   tls_version=mqtt.ssl.PROTOCOL_TLS)
+
+    # Assign event callbacks
+    client.on_connect = on_connect
+    client.on_message = on_message
+
+    # Parse MQTT_BROKER to remove "mqtts://" and extract the host
+    mqtt_broker_host = MQTT_BROKER.replace("mqtts://", "").split(":")[0]
+
+    # Connect to MQTT broker
+    client.connect(mqtt_broker_host, MQTT_PORT, 60)
+
+    return client
+
 
 class DiscoverESP32:
     def __init__(self):
@@ -322,6 +347,8 @@ if __name__ == "__main__":
     global ESP32_TCP_SERVER_IP, ESP32_TCP_SERVER_PORT
     ESP32_TCP_SERVER_IP = esp32_discoverer.esp32_address
     ESP32_TCP_SERVER_PORT = esp32_discoverer.esp32_port
+    client = initialize_mqtt_client()
+    client.loop_start()
 
     tcp_thread = threading.Thread(target=receive_audio_data_tcp)
     tcp_thread.start()
@@ -329,3 +356,4 @@ if __name__ == "__main__":
     receive_audio_data()
 
     tcp_thread.join()
+    mqtt_publish("Hello MQTT!")
