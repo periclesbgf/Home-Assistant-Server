@@ -18,6 +18,9 @@ import paho.mqtt.client as mqtt
 from pydub import AudioSegment
 from paho.mqtt.client import CallbackAPIVersion
 from paho.mqtt.client import MQTTv311  # Asume-se MQTT versão 3.1.1
+import numpy as np
+import io
+import librosa
 
 
 
@@ -149,16 +152,39 @@ def get_local_ip():
 SERVER_IP = get_local_ip()
 print(f"O IP do servidor foi definido para {SERVER_IP}")
 
+def preprocess_audio_bytes(audio_bytes):
+    # Converte os bytes para um objeto file-like que librosa pode ler
+    audio_buf = io.BytesIO(audio_bytes)
+    
+    # Carrega o áudio do buffer como waveform e normaliza para o range [-1, 1], com taxa de amostragem de 16000 Hz
+    waveform, sample_rate = librosa.load(audio_buf, sr=16000)
+
+    # Garante que waveform é um tensor
+    waveform = tf.convert_to_tensor(waveform, dtype=tf.float32)
+
+    # Calcula o espectrograma linear
+    spectrogram = tf.signal.stft(waveform, frame_length=255, frame_step=128)
+    spectrogram = tf.abs(spectrogram)
+
+    # Converte o espectrograma linear para o espectrograma de mel
+    num_spectrogram_bins = spectrogram.shape[-1]
+    num_mel_bins = 40
+    mel_weights = tf.signal.linear_to_mel_weight_matrix(
+        num_mel_bins, num_spectrogram_bins, sample_rate, 20, 4000)
+    mel_spectrogram = tf.matmul(tf.square(spectrogram), mel_weights)
+    mel_spectrogram = tf.math.log(mel_spectrogram + 1e-6)  # Logaritmo para melhorar a escala
+
+    # Adiciona um novo eixo para manter a mesma estrutura esperada pelo modelo
+    return mel_spectrogram[..., tf.newaxis]
+
 def receive_audio_data():
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     server_socket.bind((SERVER_IP, SERVER_PORT))
 
     print(f"Aguardando conexões em {SERVER_IP}:{SERVER_PORT}...")
 
-    with ThreadPoolExecutor(max_workers=5) as executor:  # Ajuste o número de workers conforme necessário
+    with ThreadPoolExecutor(max_workers=5) as executor:
         while True:
-            string_aleatoria = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
-            wav_file = string_aleatoria + ".wav"
             received_data = bytearray()
             start_time = time.time()
 
@@ -170,8 +196,10 @@ def receive_audio_data():
                 print(f"Erro durante a recepção dos dados: {e}")
 
             if received_data:
-                # Utilizando ThreadPoolExecutor para realizar o salvamento, predição e exclusão
-                executor.submit(save_predict_delete, received_data, wav_file)
+                # Processa os bytes de áudio recebidos diretamente
+                processed_audio = preprocess_audio_bytes(bytes(received_data))
+                # Aqui, você pode enviar processed_audio para seu modelo como feito na função predict_mic
+                executor.submit(predict_mic, processed_audio)  # Adapte esta chamada conforme necessário
 
     server_socket.close()
 
@@ -190,6 +218,17 @@ def save_audio_data_to_wav(data, filename):
     except Exception as e:
         print(f"Erro ao salvar os dados de áudio como WAV: {e}")
 
+def predict_mic(processed_audio):
+    # Esta função agora espera receber o áudio já processado
+    prediction = loaded_model(processed_audio)
+    label_pred = np.argmax(prediction, axis=1)
+    command = commands[label_pred[0]]
+    if command == 'eden':
+        activation_word = b'eden'
+        connect_to_esp32_tcp_server(activation_word)
+    print("Predicted:", command)
+
+"""
 def predict_mic(file):
     audio = record_audio_from_file(file)
     spec = preprocess_audiobuffer(audio)
@@ -199,7 +238,7 @@ def predict_mic(file):
     if command == 'eden':
         activation_word = b'eden'
         connect_to_esp32_tcp_server(activation_word)
-    print("Predicted:", command)
+    print("Predicted:", command)"""
 
 def delete_file(file):
     try:
