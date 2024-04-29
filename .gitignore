@@ -2,3 +2,11 @@
 venv
 build
 _pycache_
+*.csv
+certs
+digits
+.vscode
+_pycache_
+MNIST.ipynb
+voice.mp3
+_pycache_

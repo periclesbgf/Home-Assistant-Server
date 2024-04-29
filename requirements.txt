@@ -1,0 +1,4 @@
+gtts
+playsound
+pydub
+google-cloud-speech
