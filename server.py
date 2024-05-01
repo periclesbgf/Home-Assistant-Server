@@ -19,11 +19,13 @@ from pydub import AudioSegment
 from paho.mqtt.client import CallbackAPIVersion
 from paho.mqtt.client import MQTTv311  # Asume-se MQTT versão 3.1.1
 
+from llm import send_prompt
+
 
 
 commands = ['background', 'eden']
 
-loaded_model = models.load_model("./saved")
+loaded_model = models.load_model("modelo")
 
 #SERVER_IP = "192.168.1.12" # Your id: if windows ipconfig, linux: ifconfig
 SERVER_PORT = 12445 # Server port
@@ -220,6 +222,7 @@ def connect_to_esp32_tcp_server(activation_word):
 def save_predict_delete1(data, filename):
     save_audio_data_to_wav(data, filename)
     transcricao = transcrever_audio(filename)
+
     print(transcricao)
     delete_file(filename)
 
@@ -240,6 +243,7 @@ def transcrever_audio(arquivo_wav):
 
 def response_handler(text):
     text_lower = text.lower()
+
     if text_lower in ['ligar a luminária', 'ligar luminária','ligue a luminária','ligue luminária', 'acender luminária', 'acender luz', 'acender a luiz', 'acender luiz', 'ligar luz', 'acender luz']:
         command = 'on'
         mqtt_publish(command)
@@ -248,9 +252,10 @@ def response_handler(text):
         mqtt_publish(command)
     elif text_lower in ["tocar musica", "tocar música", "tocar um som", "tocar som"]:
         send_wav_file_over_tcp(wav_file_path, ESP32_TCP_SERVER_IP, ESP32_TCP_SERVER_PORT_FOR)
-    elif text_lower in ["quem é você", "qual é o seu nome", "como você se chama"]:
-        text_to_speech_wav("Meu nome é Éden, seu assistente virtual. Como posso ajudar você hoje?", 'pt-br')
-        send_wav_file_over_tcp("speech.wav", ESP32_TCP_SERVER_IP, ESP32_TCP_SERVER_PORT_FOR)
+    else:
+        filepath = send_prompt(text)
+        send_wav_file_over_tcp(filepath, ESP32_TCP_SERVER_IP, ESP32_TCP_SERVER_PORT_FOR)
+
 
 def text_to_speech_wav(text, lang='pt-br'):
     # Cria um objeto gTTS
