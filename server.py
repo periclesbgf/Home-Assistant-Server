@@ -55,7 +55,7 @@ def on_connect(client, userdata, flags, rc, properties=None):
     else:
         print(f"Failed to connect, return code {rc}\n")
 
-def mqtt_publish(message):
+def mqtt_publish(message, topic):
     client = mqtt.Client(callback_api_version=CallbackAPIVersion.VERSION2)  # Assumindo a utilização do protocolo MQTT v3.1.1
 
     # Defina sua função on_connect aqui
@@ -74,7 +74,7 @@ def mqtt_publish(message):
     client.loop_start()
 
     # Publica a mensagem e captura o resultado em info
-    info = client.publish(MQTT_TOPIC, message)
+    info = client.publish(topic, message)
 
     # Aguarda a conclusão do envio da mensagem
     info.wait_for_publish()
@@ -246,12 +246,18 @@ def response_handler(text):
 
     if text_lower in ['ligar a luminária', 'ligar luminária','ligue a luminária','ligue luminária', 'acender luminária', 'acender luz', 'acender a luiz', 'acender luiz', 'ligar luz', 'acender luz']:
         command = 'on'
-        mqtt_publish(command)
+        mqtt_publish(command, MQTT_TOPIC)
     elif text_lower in ['desligar a luminária', 'desligar luminária','apagar luminária', 'apagar a luminária', 'desligue a luminária', 'desligue luminária', 'desligar luiz', 'desligar luiz']:
         command = 'off'
-        mqtt_publish(command)
+        mqtt_publish(command, MQTT_TOPIC)
     elif text_lower in ["tocar musica", "tocar música", "tocar um som", "tocar som"]:
         send_wav_file_over_tcp(wav_file_path, ESP32_TCP_SERVER_IP, ESP32_TCP_SERVER_PORT_FOR)
+    elif text_lower in ["ligar luz", "ligar a luz", "ligar luz.", "ligue luz."]:
+        command = 'on_light'
+        mqtt_publish(command, MQTT_TOPIC)
+    elif text_lower in ["desligar luz", "desligar a luz", "desligar luz.", "desligue luz."]:
+        command = 'off_light'
+        mqtt_publish(command, MQTT_TOPIC)
     else:
         filepath = send_prompt(text)
         send_wav_file_over_tcp(filepath, ESP32_TCP_SERVER_IP, ESP32_TCP_SERVER_PORT_FOR)
