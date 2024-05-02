@@ -244,10 +244,10 @@ def transcrever_audio(arquivo_wav):
 def response_handler(text):
     text_lower = text.lower()
 
-    if text_lower in ['ligar a luminária', 'ligar luminária','ligue a luminária','ligue luminária', 'acender luminária', 'acender luz', 'acender a luiz', 'acender luiz', 'ligar luz', 'acender luz']:
+    if text_lower in ['ligar a luminária', 'ligar luminária','ligue a luminária','ligue luminária', 'acender luminária']:
         command = 'on'
         mqtt_publish(command, MQTT_TOPIC)
-    elif text_lower in ['desligar a luminária', 'desligar luminária','apagar luminária', 'apagar a luminária', 'desligue a luminária', 'desligue luminária', 'desligar luiz', 'desligar luiz']:
+    elif text_lower in ['desligar a luminária', 'desligar luminária','apagar luminária', 'apagar a luminária', 'desligue a luminária', 'desligue luminária']:
         command = 'off'
         mqtt_publish(command, MQTT_TOPIC)
     elif text_lower in ["tocar musica", "tocar música", "tocar um som", "tocar som"]:
