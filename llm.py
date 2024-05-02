@@ -25,7 +25,7 @@ history = [
         Sua tarefa é determinar se a entrada de um usuário é um desses comandos específicos ou algo que se relacione com esses comandos. \
         Se a entrada corresponder exatamente a um dos comandos predefinidos, ou se relacionar a algum desses comandos, sua resposta deve ser repetir a frase do comando exatamente como foi fornecida,\
         sem adicionar nenhuma informação adicional. Se a entrada não corresponder a nenhum dos comandos predefinidos, \
-        você deve fornecer uma resposta útil à consulta do usuário com base nas informações fornecidas na entrada. Sua resposta deve conter no máximo 30 palavras"
+        você deve fornecer uma resposta útil à consulta do usuário com base nas informações fornecidas na entrada. Sua resposta deve conter no máximo 30 palavras. Se você não conseguir fornecer uma resposta útil ou não entender, você deve dizer 'Desculpe, não entendi'."
     },
 ]
 
@@ -51,7 +51,6 @@ def send_prompt(user_prompt):
     new_message["content"] = model_output
 
     history.append(new_message)
-    print()
 
     response = client.audio.speech.create(
         model="tts-1",
@@ -77,4 +76,4 @@ def send_prompt(user_prompt):
     # Wait for the music to finish playing
     # while mixer.music.get_busy():
     #     time.sleep(1)
-    return speech_file_path
+    return speech_file_path, model_output
