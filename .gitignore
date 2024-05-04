@@ -10,3 +10,7 @@ _pycache_
 MNIST.ipynb
 voice.mp3
 _pycache_
+*.mp3
+audio
+test.py
+__pycache__/llm.cpython-310.pyc

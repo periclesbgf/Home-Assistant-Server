@@ -119,7 +119,7 @@ class DiscoverESP32:
             server_socket.bind(('', listen_port))
             server_socket.listen()
             print(f"Listening for ESP32 connection on port {listen_port}...")
-            
+
             client_socket, client_address = server_socket.accept()
             with client_socket:
                 print(f"ESP32 connected from {client_address}")
